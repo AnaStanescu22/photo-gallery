@@ -12,9 +12,7 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.PhotoGallery"
-        android:hardwareAccelerated="false"
-        android:largeHeap="true">
+        android:theme="@style/Theme.PhotoGallery">
         <activity
             android:name=".MainActivity"
             android:exported="true">

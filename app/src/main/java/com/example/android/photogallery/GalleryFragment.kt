@@ -9,60 +9,47 @@ import android.view.ViewGroup
 import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.lifecycleScope
-import androidx.recyclerview.widget.GridLayoutManager
-import com.example.android.photogallery.databinding.FragmentGalleryBinding
 import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.lifecycleScope
+import com.example.android.photogallery.databinding.FragmentGalleryBinding
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 
 class GalleryFragment : Fragment() {
+    private lateinit var binding: FragmentGalleryBinding
+    private val galleryAdapter by lazy {
+        GalleryRecyclerAdapter()
+    }
 
-    private val galleryAdapter = GalleryRecyclerAdapter()
-    private val PERMISSION_REQUEST_CODE = 200
     private val viewModel: GalleryViewModel by activityViewModels()
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-
-        val binding: FragmentGalleryBinding =
-            FragmentGalleryBinding.inflate(inflater, container, false)
-
-        requestPermissions()
-
-        val manager = GridLayoutManager(activity, 4)
-        binding.imagesRecyclerView.layoutManager = manager
-        binding.imagesRecyclerView.adapter = galleryAdapter
-
+        binding = FragmentGalleryBinding.inflate(inflater, container, false)
         return binding.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        binding.imagesRecyclerView.adapter = galleryAdapter
 
-        viewModel.state.onEach { gallery ->
-            galleryAdapter.setGallery(gallery)
-
-        }.launchIn(lifecycleScope)
+        viewModel.state.onEach(galleryAdapter::submitList).launchIn(lifecycleScope)
     }
 
-    private fun checkPermission(): Boolean {
-        val result = context?.let { ContextCompat.checkSelfPermission(it, READ_EXTERNAL_STORAGE) }
-        return result == PackageManager.PERMISSION_GRANTED
-    }
+    private fun checkPermission() =
+        ContextCompat.checkSelfPermission(
+            requireContext(),
+            READ_EXTERNAL_STORAGE
+        ) == PackageManager.PERMISSION_GRANTED
 
-    private fun requestPermissions() {
+    private fun requestReadStoragePermission() {
         if (checkPermission()) {
             Toast.makeText(context, "Permissions granted", Toast.LENGTH_SHORT).show()
-            viewModel.launchCoroutine()
+            viewModel.fetchLocalImages()
         } else {
-            requestPermission()
+            requestPermissions(arrayOf(READ_EXTERNAL_STORAGE), PERMISSION_REQUEST_CODE)
         }
-    }
-
-    private fun requestPermission() {
-        requestPermissions(arrayOf(READ_EXTERNAL_STORAGE), PERMISSION_REQUEST_CODE)
     }
 
     override fun onRequestPermissionsResult(
@@ -70,22 +57,34 @@ class GalleryFragment : Fragment() {
         permissions: Array<out String>,
         grantResults: IntArray
     ) {
-
         when (requestCode) {
             PERMISSION_REQUEST_CODE ->
                 if (grantResults.isNotEmpty()) {
                     val storageAccepted = grantResults[0] == PackageManager.PERMISSION_GRANTED
                     if (storageAccepted) {
-                        Toast.makeText(context, "Permissions Granted..", Toast.LENGTH_SHORT).show()
-                        viewModel.launchCoroutine()
+                        Toast.makeText(
+                            requireContext(),
+                            "Permissions Granted..",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                        viewModel.fetchLocalImages()
                     } else {
                         Toast.makeText(
-                            context,
+                            requireContext(),
                             "Permissions denied, Permissions are required to use the app..",
                             Toast.LENGTH_SHORT
                         ).show()
                     }
                 }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        requestReadStoragePermission()
+    }
+
+    companion object {
+        const val PERMISSION_REQUEST_CODE = 12345
     }
 }
